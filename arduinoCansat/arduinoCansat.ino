@@ -72,7 +72,7 @@ void ReadSD()
     while (dataFile.available())
     {
       dataLine = dataFile.read(); 
-      Serial.write(dataLine);
+      Serial.println(dataLine);
     }
 
     dataFile.close();
@@ -131,7 +131,7 @@ void loop()
 
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
-    Serial.println(F("No GPS detected: check wiring."));
+    Serial.println(F("los cables del gps estánb mal"));
     while(true);
   }
 
