@@ -131,7 +131,7 @@ void loop()
 
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
-    Serial.println(F("los cables del gps estánb mal"));
+    Serial.println(F("los cables del gps están mal"));
     while(true);
   }
 
