@@ -142,20 +142,14 @@ void displayGPS()
 //
 void loop()
 {
-  /*while (ss.available() > 0)
+  while (ss.available() > 0)
     if (gps.encode(ss.read()))
-      displayGPS();*/
+      delayedLoop();
 
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
     Serial.println(F("No GPS detected: check wiring."));
     while(true);
-  }
-  unsigned long currentMillis = millis();
-
-  if (currentMillis - previousMillis >= delayMillis) {
-    delayedLoop();
-    previousMillis = currentMillis;
   }
 
 }
