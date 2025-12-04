@@ -35,12 +35,12 @@ void setup() {
   while ( !Serial ) delay(100);   // wait for native usb
   Serial.println(F("BMP280 test"));
   Serial.print(F("Iniciando SD ..."));
-  if (!SD.begin(9))
+  /*  if (!SD.begin(9))
   {
     Serial.println(F("Error al iniciar"));
     return;
   }
-  Serial.println(F("Iniciado correctamente"));
+  Serial.println(F("Iniciado correctamente"));*/
  
   // Abrir fichero y mostrar el resultado
 

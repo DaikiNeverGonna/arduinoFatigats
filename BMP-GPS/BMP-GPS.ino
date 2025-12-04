@@ -28,7 +28,8 @@ int package = 0;
 Adafruit_BMP280 bmp; // I2C
 File logFile;
 
-void setup() {
+void setup()
+{
   Serial.begin(9600);
   //GPS
   ss.begin(GPSBaud);
@@ -36,13 +37,15 @@ void setup() {
   //
   while (!Serial) delay(100);   // wait for native usb
   Serial.println(F("BMP280 test"));
+
+  /*
   Serial.print(F("Iniciando SD ..."));
   if (!SD.begin(9))
   {
     Serial.println(F("Error al iniciar"));
     return;
   }
-  Serial.println(F("Iniciado correctamente"));
+  Serial.println(F("Iniciado correctamente"));*/
    
   unsigned status;
   status = bmp.begin();
@@ -116,7 +119,7 @@ void displayGPS()
   if (gps.time.isValid())
   {
     if (gps.time.hour() < 10) Serial.print(F("0"));
-    Serial.print(gps.time.hour() + 1);
+    Serial.print(gps.time.hour());
     Serial.print(F(":"));
     if (gps.time.minute() < 10) Serial.print(F("0"));
     Serial.print(gps.time.minute());
@@ -136,7 +139,7 @@ void displayGPS()
 void loop()
 {
   logFile = SD.open("datalog.txt", FILE_WRITE);
-  Serial.print("CANSATS - ");
+  Serial.print("FATIGATS - ");
 
   //GPS
   while (ss.available() > 0)
@@ -148,20 +151,21 @@ void loop()
     Serial.println(F("No GPS detected: check wiring."));
     while(true);
   }
-  //
+  // p-paquete C-celsius P - Pascals m-Altitud
+  char unities[] = "pCPm";
   float stuff[4] = {package, bmp.readTemperature(), bmp.readPressure(), bmp.readAltitude(1013.25)};
   for (int i = 0; i < 4; i++)
   {
-    Serial.print(String(stuff[i]));
+    Serial.print(String(stuff[i]) + unities[i]);
     Serial.print(", ");
   }
   displayGPS();
   
-  if (logFile)
+  /*if (logFile)
   {
     logFile.println("Nose");
     logFile.close();
-  }
+  }*/
 
   Serial.println();
   delay(2000);
