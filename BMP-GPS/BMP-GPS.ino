@@ -4,7 +4,7 @@
 
 static const int RXPin = 5, TXPin = 4;
 static const uint32_t GPSBaud = 9600;
-//
+// 
 
 #include <Wire.h>
 #include <SPI.h>
