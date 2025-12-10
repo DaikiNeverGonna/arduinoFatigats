@@ -9,8 +9,8 @@ static const uint32_t GPSBaud = 9600;
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_BMP280.h>
-#include <SD.h>
 
+#include <SD.h>
 
 #define BMP_SCK  (13)
 #define BMP_MISO (12)
@@ -42,24 +42,19 @@ void setup()
   while (!Serial) delay(100);   // wait for native usb
   Serial.println(F("BMP280 test"));
 
-  /*
+  
   Serial.print(F("Iniciando SD ..."));
   if (!SD.begin(9))
   {
-    Serial.println(F("Error al iniciar"));
-    return;
+    Serial.println(F("Error al iniciar SD"));
+    while(true);
   }
-  Serial.println(F("Iniciado correctamente"));*/
+  Serial.println(F("SD iniciado correctamente"));
    
+  
   unsigned status;
   status = bmp.begin();
   if (!status) {
-    Serial.println(F("Could not find a valid BMP280 sensor, check wiring or try a different address!"));
-    Serial.print("SensorID was: 0x"); Serial.println(bmp.sensorID(),16);
-    Serial.print("ID of 0xFF probably means a bad address, a BMP 180 or BMP 085\n");
-    Serial.print("ID of 0x56-0x58 represents a BMP 280,\n");
-    Serial.print("ID of 0x60 represents a BME 280.\n");
-    Serial.print("ID of 0x61 represents a BME 680.\n");
     while (1) delay(10);
   }
 
@@ -93,7 +88,7 @@ void ReadSD()
 //
 void displayGPS()
 {
-  Serial.print(F("Location: ")); 
+  Serial.print(F("Location: "));
   if (gps.location.isValid())
   {
     Serial.print(gps.location.lat(), 6);
@@ -139,6 +134,56 @@ void displayGPS()
     Serial.print(F("INVALID"));
   }
 }
+
+void displayGPSonSD()
+{
+  
+  logFile.print(F("Location: "));
+  if (gps.location.isValid())
+  {
+    logFile.print(gps.location.lat(), 6);
+    logFile.print(F(","));
+    logFile.print(gps.location.lng(), 6);
+  }
+  else
+  {
+    logFile.print(F("INVALID"));
+  }
+
+  logFile.print(F("  Date/Time: "));
+  if (gps.date.isValid())
+  {
+    logFile.print(gps.date.month());
+    logFile.print(F("/"));
+    logFile.print(gps.date.day());
+    logFile.print(F("/"));
+    logFile.print(gps.date.year());
+  }
+  else
+  {
+    logFile.print(F("INVALID"));
+  }
+
+  logFile.print(F(" "));
+  if (gps.time.isValid())
+  {
+    if (gps.time.hour() < 10) logFile.print(F("0"));
+    logFile.print(gps.time.hour());
+    logFile.print(F(":"));
+    if (gps.time.minute() < 10) logFile.print(F("0"));
+    logFile.print(gps.time.minute());
+    logFile.print(F(":"));
+    if (gps.time.second() < 10) logFile.print(F("0"));
+    logFile.print(gps.time.second());
+    logFile.print(F("."));
+    if (gps.time.centisecond() < 10) logFile.print(F("0"));
+    logFile.print(gps.time.centisecond());
+  }
+  else
+  {
+    logFile.print(F("INVALID"));
+  }
+}
 //
 void loop()
 {
@@ -156,7 +201,11 @@ void loop()
 void delayedLoop()
 {
   //logFile = SD.open("datalog.txt", FILE_WRITE);
+  
+  logFile =  SD.open("datalog.txt", FILE_WRITE);
+
   Serial.print("FATIGATS - ");
+  logFile.print("FATIGATS - ");
 
   // p-paquete C-celsius P - Pascals m-Altitud
   char unities[] = "pCPm";
@@ -165,8 +214,12 @@ void delayedLoop()
   {
     Serial.print(String(stuff[i]) + unities[i]);
     Serial.print(", ");
+
+    logFile.print(String(stuff[i]) + unities[i]);
+    logFile.print(", ");
   }
   displayGPS();
+  displayGPSonSD();
   
   /*if (logFile)
   {
@@ -175,6 +228,8 @@ void delayedLoop()
   }*/
 
   Serial.println();
+  logFile.println();
+  logFile.close();
   //delay(2000);
 
   package++;
