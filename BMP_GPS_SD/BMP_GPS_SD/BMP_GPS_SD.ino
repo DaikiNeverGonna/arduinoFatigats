@@ -32,9 +32,20 @@ int delayMillis = 2000;
 
 int previousMillis;
 
+const int pressuresToCalibrate = 100;
+float pressures[pressuresToCalibrate];
+
+float altitudeVariable = 1013.25;
+
 void setup()
 {
   Serial.begin(9600);
+
+  for (int i = 0; i < pressuresToCalibrate; i++)
+  {
+    pressures[i] = 0;
+  }
+
   //GPS
   ss.begin(GPSBaud);
 
@@ -198,6 +209,23 @@ void loop()
   }
 
 }
+void newAltitudeData()
+{
+  
+  float totalPressure = 0;
+  int pressureCount = 0;
+
+  for (int i = 0; i < pressuresToCalibrate; i++)
+  {
+    if (pressures[i] > 90000 && pressures[i] < 110000)
+    {
+      totalPressure += pressures[i];
+      pressureCount++;
+    }
+  }
+  if (pressureCount > 0)
+    altitudeVariable = totalPressure / pressureCount;
+}
 void delayedLoop()
 {
   //logFile = SD.open("datalog.txt", FILE_WRITE);
@@ -209,7 +237,7 @@ void delayedLoop()
 
   // p-paquete C-celsius P - Pascals m-Altitud
   char unities[] = "pCPm";
-  float stuff[4] = {package, bmp.readTemperature(), bmp.readPressure(), bmp.readAltitude(1013.25)};
+  float stuff[4] = {package, bmp.readTemperature(), bmp.readPressure(), bmp.readAltitude(altitudeVariable)};
   for (int i = 0; i < 4; i++)
   {
     Serial.print(String(stuff[i]) + unities[i]);
@@ -232,5 +260,18 @@ void delayedLoop()
   logFile.close();
   //delay(2000);
 
+  //recopilar altura
+  //
+  //< 900 lo quito mas de 1100 quito 
+  if (package < pressuresToCalibrate)
+  {
+    pressures[package] = bmp.readPressure();
+  }
+  else if (package == pressuresToCalibrate)
+  {
+    Serial.print("AAAAAAA");
+    newAltitudeData();
+  }
+  //
   package++;
 }
