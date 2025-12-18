@@ -1,277 +1,247 @@
-//GPS
+/************** CONFIG **************/
 #include <TinyGPSPlus.h>
 #include <SoftwareSerial.h>
-
-static const int RXPin = 5, TXPin = 4;
-static const uint32_t GPSBaud = 9600;
-//
 
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_BMP280.h>
-
 #include <SD.h>
 
-#define BMP_SCK  (13)
-#define BMP_MISO (12)
-#define BMP_MOSI (11)
-#define BMP_CS   (10)
+// GPS
+static const uint8_t RXPin = 5;   // Arduino recibe desde TX del GPS
+static const uint8_t TXPin = 4;   // Arduino envía a RX del GPS (si se usa)
+static const uint32_t GPSBaud = 9600;
 
-// The TinyGPSPlus object
+// SD  (en Arduino UNO, la mayoría de módulos/shields usan CS = 10)
+static const uint8_t SD_CS_PIN = 10;
+
+// Serial monitor
+static const uint32_t SERIAL_BAUD = 9600;
+
+// Calibración de presión (100 lecturas)
+static const uint16_t CAL_SAMPLES_TARGET = 100;
+static const uint32_t PRESSURE_MIN_PA = 90000;
+static const uint32_t PRESSURE_MAX_PA = 110000;
+/************************************/
+
 TinyGPSPlus gps;
-
-// The serial connection to the GPS device
 SoftwareSerial ss(RXPin, TXPin);
-//
-
-int package = 0;
 Adafruit_BMP280 bmp; // I2C
+
 File logFile;
 
-int delayMillis = 2000;
+// “Paquetes”
+uint32_t package = 0;
 
-int previousMillis;
+// Presión a nivel del mar en hPa (BMP280 readAltitude espera hPa)
+float seaLevelhPa = 1013.25f;
 
-const int pressuresToCalibrate = 100;
-float pressures[pressuresToCalibrate];
-
-float altitudeVariable = 1013.25;
+// Calibración sin array (MUCHA menos RAM en UNO)
+uint32_t calSumPa = 0;
+uint16_t calValidCount = 0;
+bool calibrated = false;
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(SERIAL_BAUD);
+  delay(300);
 
-  for (int i = 0; i < pressuresToCalibrate; i++)
-  {
-    pressures[i] = 0;
-  }
+  // En UNO esto NO hace falta y a veces confunde, lo quitamos.
 
-  //GPS
+  Serial.println(F("=== START ==="));
+
+  // GPS
   ss.begin(GPSBaud);
+  ss.listen();
 
-  //
-  while (!Serial) delay(100);   // wait for native usb
-  Serial.println(F("BMP280 test"));
+  // SPI: en UNO hay que dejar SS (pin 10) como OUTPUT para que SPI funcione bien
+  pinMode(10, OUTPUT);
 
-  
-  Serial.print(F("Iniciando SD ..."));
-  if (!SD.begin(9))
+  // SD init
+  Serial.print(F("Iniciando SD (CS="));
+  Serial.print(SD_CS_PIN);
+  Serial.println(F(")..."));
+
+  if (!SD.begin(SD_CS_PIN))
   {
-    Serial.println(F("Error al iniciar SD"));
-    while(true);
+    Serial.println(F("ERROR: SD no inicializa. Revisa CS, cableado, y formato FAT32."));
+    // No bloqueamos el programa: seguimos sin SD para poder ver por Serial qué pasa
   }
-  Serial.println(F("SD iniciado correctamente"));
-   
-  
-  unsigned status;
-  status = bmp.begin();
-  if (!status) {
-    while (1) delay(10);
+  else
+  {
+    Serial.println(F("SD OK"));
   }
 
-  /* Default settings from datasheet. */
-  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
-                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
-                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
-                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
-                  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+  // BMP280 init (probamos 0x76 y 0x77)
+  Serial.println(F("Iniciando BMP280..."));
+  bool bmpOK = bmp.begin(0x76);
+  if (!bmpOK) bmpOK = bmp.begin(0x77);
+
+  if (!bmpOK)
+  {
+    Serial.println(F("ERROR: BMP280 no detectado (0x76/0x77). Revisa cableado SDA/SCL y VCC/GND."));
+    // Igual: no bloqueamos, pero ojo que sin BMP no tendrás datos válidos
+  }
+  else
+  {
+    Serial.println(F("BMP280 OK"));
+    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
+                    Adafruit_BMP280::SAMPLING_X2,
+                    Adafruit_BMP280::SAMPLING_X16,
+                    Adafruit_BMP280::FILTER_X16,
+                    Adafruit_BMP280::STANDBY_MS_500);
+  }
+
+  Serial.println(F("=== LOOP ==="));
 }
 
-void ReadSD()
+static void printGPS_Serial()
 {
-  File dataFile = SD.open("datalog.txt"); 
-  if (dataFile)
-  {
-    while (dataFile.available())
-    {
-      char c = dataFile.read(); 
-      Serial.write(c);  // En un caso real se realizarían las acciones oportunas
-    }
-    dataFile.close();
-  }
-  else 
-  {
-    Serial.println(F("Error al abrir el archivo"));
-  }
-  Serial.println("Se está llamando read SD");
-}
-
-//
-void displayGPS()
-{
-  Serial.print(F("Location: "));
+  Serial.print(F(" Location: "));
   if (gps.location.isValid())
   {
     Serial.print(gps.location.lat(), 6);
     Serial.print(F(","));
     Serial.print(gps.location.lng(), 6);
   }
-  else
-  {
-    Serial.print(F("INVALID"));
-  }
+  else Serial.print(F("INVALID"));
 
   Serial.print(F("  Date/Time: "));
   if (gps.date.isValid())
   {
-    Serial.print(gps.date.month());
-    Serial.print(F("/"));
-    Serial.print(gps.date.day());
-    Serial.print(F("/"));
+    Serial.print(gps.date.month()); Serial.print(F("/"));
+    Serial.print(gps.date.day());   Serial.print(F("/"));
     Serial.print(gps.date.year());
   }
-  else
-  {
-    Serial.print(F("INVALID"));
-  }
+  else Serial.print(F("INVALID"));
 
   Serial.print(F(" "));
   if (gps.time.isValid())
   {
     if (gps.time.hour() < 10) Serial.print(F("0"));
-    Serial.print(gps.time.hour());
-    Serial.print(F(":"));
+    Serial.print(gps.time.hour()); Serial.print(F(":"));
     if (gps.time.minute() < 10) Serial.print(F("0"));
-    Serial.print(gps.time.minute());
-    Serial.print(F(":"));
+    Serial.print(gps.time.minute()); Serial.print(F(":"));
     if (gps.time.second() < 10) Serial.print(F("0"));
     Serial.print(gps.time.second());
-    Serial.print(F("."));
-    if (gps.time.centisecond() < 10) Serial.print(F("0"));
-    Serial.print(gps.time.centisecond());
   }
-  else
-  {
-    Serial.print(F("INVALID"));
-  }
+  else Serial.print(F("INVALID"));
 }
 
-void displayGPSonSD()
+static void printGPS_SD(File &f)
 {
-  
-  logFile.print(F("Location: "));
+  f.print(F(" Location: "));
   if (gps.location.isValid())
   {
-    logFile.print(gps.location.lat(), 6);
-    logFile.print(F(","));
-    logFile.print(gps.location.lng(), 6);
+    f.print(gps.location.lat(), 6);
+    f.print(F(","));
+    f.print(gps.location.lng(), 6);
   }
-  else
-  {
-    logFile.print(F("INVALID"));
-  }
+  else f.print(F("INVALID"));
 
-  logFile.print(F("  Date/Time: "));
+  f.print(F("  Date/Time: "));
   if (gps.date.isValid())
   {
-    logFile.print(gps.date.month());
-    logFile.print(F("/"));
-    logFile.print(gps.date.day());
-    logFile.print(F("/"));
-    logFile.print(gps.date.year());
+    f.print(gps.date.month()); f.print(F("/"));
+    f.print(gps.date.day());   f.print(F("/"));
+    f.print(gps.date.year());
   }
-  else
-  {
-    logFile.print(F("INVALID"));
-  }
+  else f.print(F("INVALID"));
 
-  logFile.print(F(" "));
+  f.print(F(" "));
   if (gps.time.isValid())
   {
-    if (gps.time.hour() < 10) logFile.print(F("0"));
-    logFile.print(gps.time.hour());
-    logFile.print(F(":"));
-    if (gps.time.minute() < 10) logFile.print(F("0"));
-    logFile.print(gps.time.minute());
-    logFile.print(F(":"));
-    if (gps.time.second() < 10) logFile.print(F("0"));
-    logFile.print(gps.time.second());
-    logFile.print(F("."));
-    if (gps.time.centisecond() < 10) logFile.print(F("0"));
-    logFile.print(gps.time.centisecond());
+    if (gps.time.hour() < 10) f.print(F("0"));
+    f.print(gps.time.hour()); f.print(F(":"));
+    if (gps.time.minute() < 10) f.print(F("0"));
+    f.print(gps.time.minute()); f.print(F(":"));
+    if (gps.time.second() < 10) f.print(F("0"));
+    f.print(gps.time.second());
   }
-  else
-  {
-    logFile.print(F("INVALID"));
-  }
+  else f.print(F("INVALID"));
 }
-//
-void loop()
+
+void logOnePacket()
 {
-  while (ss.available() > 0)
-    if (gps.encode(ss.read()))
-      delayedLoop();
+  // Lecturas sensor (si BMP no está, estas funciones devuelven cosas raras)
+  float tempC = bmp.readTemperature();
+  uint32_t pressPa = (uint32_t)bmp.readPressure();
+  float altM = bmp.readAltitude(seaLevelhPa);
 
-  if (millis() > 5000 && gps.charsProcessed() < 10)
+  // ---- Serial (sin String, estable en UNO)
+  Serial.print(F("FATIGATS - "));
+  Serial.print(package); Serial.print(F("p, "));
+  Serial.print(tempC, 2); Serial.print(F("C, "));
+  Serial.print(pressPa); Serial.print(F("P, "));
+  Serial.print(altM, 2); Serial.print(F("m,"));
+  printGPS_Serial();
+  Serial.println();
+
+  // ---- SD (si SD falla, no petamos el programa)
+  if (SD.begin(SD_CS_PIN))
   {
-    Serial.println(F("No GPS detected: check wiring."));
-    while(true);
-  }
-
-}
-void newAltitudeData()
-{
-  
-  float totalPressure = 0;
-  int pressureCount = 0;
-
-  for (int i = 0; i < pressuresToCalibrate; i++)
-  {
-    if (pressures[i] > 90000 && pressures[i] < 110000)
+    File f = SD.open("datalog.txt", FILE_WRITE);
+    if (f)
     {
-      totalPressure += pressures[i];
-      pressureCount++;
+      f.print(F("FATIGATS - "));
+      f.print(package); f.print(F("p, "));
+      f.print(tempC, 2); f.print(F("C, "));
+      f.print(pressPa); f.print(F("P, "));
+      f.print(altM, 2); f.print(F("m,"));
+      printGPS_SD(f);
+      f.println();
+      f.close();
     }
   }
-  if (pressureCount > 0)
-    altitudeVariable = totalPressure / pressureCount;
-}
-void delayedLoop()
-{
-  //logFile = SD.open("datalog.txt", FILE_WRITE);
-  
-  logFile =  SD.open("datalog.txt", FILE_WRITE);
 
-  Serial.print("FATIGATS - ");
-  logFile.print("FATIGATS - ");
-
-  // p-paquete C-celsius P - Pascals m-Altitud
-  char unities[] = "pCPm";
-  float stuff[4] = {package, bmp.readTemperature(), bmp.readPressure(), bmp.readAltitude(altitudeVariable)};
-  for (int i = 0; i < 4; i++)
+  // ---- Calibración de seaLevelhPa (solo una vez)
+  if (!calibrated)
   {
-    Serial.print(String(stuff[i]) + unities[i]);
-    Serial.print(", ");
+    // cogemos 100 muestras válidas
+    if (pressPa >= PRESSURE_MIN_PA && pressPa <= PRESSURE_MAX_PA)
+    {
+      calSumPa += pressPa;
+      calValidCount++;
 
-    logFile.print(String(stuff[i]) + unities[i]);
-    logFile.print(", ");
+      if (calValidCount >= CAL_SAMPLES_TARGET)
+      {
+        float meanPa = (float)calSumPa / (float)calValidCount;
+        seaLevelhPa = meanPa / 100.0f; // Pa -> hPa
+
+        calibrated = true;
+        Serial.print(F("CALIBRADO seaLevelhPa = "));
+        Serial.println(seaLevelhPa, 2);
+      }
+    }
   }
-  displayGPS();
-  displayGPSonSD();
-  
-  /*if (logFile)
-  {
-    logFile.println("Nose");
-    logFile.close();
-  }*/
 
-  Serial.println();
-  logFile.println();
-  logFile.close();
-  //delay(2000);
-
-  //recopilar altura
-  //
-  //< 900 lo quito mas de 1100 quito 
-  if (package < pressuresToCalibrate)
-  {
-    pressures[package] = bmp.readPressure();
-  }
-  else if (package == pressuresToCalibrate)
-  {
-    Serial.print("AAAAAAA");
-    newAltitudeData();
-  }
-  //
   package++;
+}
+
+void loop()
+{
+  // Consumimos datos GPS
+  while (ss.available() > 0)
+  {
+    char c = (char)ss.read();
+    gps.encode(c);
+
+    // Cuando llega un paquete “completo” (cambia algo), logueamos
+    // (Alternativa simple: loguear cada X ms, pero mantengo tu lógica de “según GPS”)
+    if (gps.location.isUpdated() || gps.time.isUpdated() || gps.date.isUpdated())
+    {
+      logOnePacket();
+    }
+  }
+
+  // Si NO hay GPS conectado, no bloqueamos el programa (solo avisamos cada cierto tiempo)
+  static uint32_t lastWarn = 0;
+  if (millis() > 5000 && gps.charsProcessed() < 10)
+  {
+    if (millis() - lastWarn > 2000)
+    {
+      Serial.println(F("AVISO: No GPS detectado (revisa wiring). El programa sigue."));
+      lastWarn = millis();
+    }
+  }
 }
