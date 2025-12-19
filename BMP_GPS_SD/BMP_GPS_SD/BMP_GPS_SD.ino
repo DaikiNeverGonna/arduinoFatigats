@@ -30,13 +30,12 @@ Adafruit_BMP280 bmp; // I2C
 
 File logFile;
 
-// “Paquetes”
 uint32_t package = 0;
 
 // Presión a nivel del mar en hPa (BMP280 readAltitude espera hPa)
 float seaLevelhPa = 1013.25f;
 
-// Calibración sin array (MUCHA menos RAM en UNO)
+// Calibración
 uint32_t calSumPa = 0;
 uint16_t calValidCount = 0;
 bool calibrated = false;
@@ -45,16 +44,12 @@ void setup()
 {
   Serial.begin(SERIAL_BAUD);
   delay(300);
-
-  // En UNO esto NO hace falta y a veces confunde, lo quitamos.
-
+  
   Serial.println(F("=== START ==="));
-
   // GPS
   ss.begin(GPSBaud);
   ss.listen();
 
-  // SPI: en UNO hay que dejar SS (pin 10) como OUTPUT para que SPI funcione bien
   pinMode(10, OUTPUT);
 
   // SD init
@@ -80,7 +75,7 @@ void setup()
   if (!bmpOK)
   {
     Serial.println(F("ERROR: BMP280 no detectado (0x76/0x77). Revisa cableado SDA/SCL y VCC/GND."));
-    // Igual: no bloqueamos, pero ojo que sin BMP no tendrás datos válidos
+
   }
   else
   {
