@@ -1,4 +1,4 @@
-/************** CONFIG **************/
+// NO TOCAR
 #include <TinyGPSPlus.h>
 #include <SoftwareSerial.h>
 
@@ -7,38 +7,40 @@
 #include <Adafruit_BMP280.h>
 #include <SD.h>
 
-// GPS
-static const uint8_t RXPin = 5;   // Arduino recibe desde TX del GPS
-static const uint8_t TXPin = 4;   // Arduino envía a RX del GPS (si se usa)
+// GPS - pines asignados y número raro
+static const uint8_t RXPin = 5;   
+static const uint8_t TXPin = 4;  
 static const uint32_t GPSBaud = 9600;
 
-// SD  (en Arduino UNO, la mayoría de módulos/shields usan CS = 10)
+// SD - pin asignado 
 static const uint8_t SD_CS_PIN = 10;
 
 // Serial monitor
 static const uint32_t SERIAL_BAUD = 9600;
 
-// Calibración de presión (100 lecturas)
-static const uint16_t CAL_SAMPLES_TARGET = 100;
-static const uint32_t PRESSURE_MIN_PA = 90000;
-static const uint32_t PRESSURE_MAX_PA = 110000;
-/************************************/
+// Pressure calibration (100 veces)
+static const uint16_t samplesQuantity = 100;
+static const uint32_t minPressure = 90000;
+static const uint32_t maxPressure = 110000;
+
+uint32_t calSumPa = 0; //uso un int de 32 bits en la suma total porque será mayor y uno de 16 en la cantidad porque será un número pequeño
+uint16_t calValidCount = 0;
+bool calibrated = false;
+
+// cosas raras
 
 TinyGPSPlus gps;
 SoftwareSerial ss(RXPin, TXPin);
 Adafruit_BMP280 bmp; // I2C
 
+//SD y paquete
+
 File logFile;
 
 uint32_t package = 0;
 
-// Presión a nivel del mar en hPa (BMP280 readAltitude espera hPa)
+// Presión de nivel del mar en hPa (BMP280 readAltitude lee hPa)
 float seaLevelhPa = 1013.25f;
-
-// Calibración
-uint32_t calSumPa = 0;
-uint16_t calValidCount = 0;
-bool calibrated = false;
 
 void setup()
 {
@@ -60,7 +62,7 @@ void setup()
   if (!SD.begin(SD_CS_PIN))
   {
     Serial.println(F("ERROR: SD no inicializa. Revisa CS, cableado, y formato FAT32."));
-    // No bloqueamos el programa: seguimos sin SD para poder ver por Serial qué pasa
+    // SIN PARAR EL PROGRAMA (El programa se inicia aunque no haya SD)
   }
   else
   {
@@ -70,7 +72,8 @@ void setup()
   // BMP280 init (probamos 0x76 y 0x77)
   Serial.println(F("Iniciando BMP280..."));
   bool bmpOK = bmp.begin(0x76);
-  if (!bmpOK) bmpOK = bmp.begin(0x77);
+  if (!bmpOK)
+    bmpOK = bmp.begin(0x77);
 
   if (!bmpOK)
   {
@@ -156,14 +159,14 @@ static void printGPS_SD(File &f)
   else f.print(F("INVALID"));
 }
 
-void logOnePacket()
+void logOnePackage()
 {
-  // Lecturas sensor (si BMP no está, estas funciones devuelven cosas raras)
+  // Lecturas sensor
   float tempC = bmp.readTemperature();
   uint32_t pressPa = (uint32_t)bmp.readPressure();
   float altM = bmp.readAltitude(seaLevelhPa);
 
-  // ---- Serial (sin String, estable en UNO)
+  // Serial: print del bmp y gps (el gps está en su propio método)
   Serial.print(F("FATIGATS - "));
   Serial.print(package); Serial.print(F("p, "));
   Serial.print(tempC, 2); Serial.print(F("C, "));
@@ -172,7 +175,7 @@ void logOnePacket()
   printGPS_Serial();
   Serial.println();
 
-  // ---- SD (si SD falla, no petamos el programa)
+  // SD: print del bmp y gps como antes
   if (SD.begin(SD_CS_PIN))
   {
     File f = SD.open("datalog.txt", FILE_WRITE);
@@ -189,16 +192,17 @@ void logOnePacket()
     }
   }
 
-  // ---- Calibración de seaLevelhPa (solo una vez)
+  // Calibración de seaLevelhPa
   if (!calibrated)
   {
     // cogemos 100 muestras válidas
-    if (pressPa >= PRESSURE_MIN_PA && pressPa <= PRESSURE_MAX_PA)
+    if (pressPa >= minPressure && pressPa <= maxPressure)
     {
       calSumPa += pressPa;
       calValidCount++;
 
-      if (calValidCount >= CAL_SAMPLES_TARGET)
+      //hacer la calibración
+      if (calValidCount >= samplesQuantity)
       {
         float meanPa = (float)calSumPa / (float)calValidCount;
         seaLevelhPa = meanPa / 100.0f; // Pa -> hPa
@@ -215,21 +219,20 @@ void logOnePacket()
 
 void loop()
 {
-  // Consumimos datos GPS
+  // cosas del gps
   while (ss.available() > 0)
   {
     char c = (char)ss.read();
     gps.encode(c);
 
-    // Cuando llega un paquete “completo” (cambia algo), logueamos
-    // (Alternativa simple: loguear cada X ms, pero mantengo tu lógica de “según GPS”)
     if (gps.location.isUpdated() || gps.time.isUpdated() || gps.date.isUpdated())
     {
-      logOnePacket();
+      //el gps funciona aquí así que hago print y tal
+      logOnePackage();
     }
   }
 
-  // Si NO hay GPS conectado, no bloqueamos el programa (solo avisamos cada cierto tiempo)
+  // Si no hay GPS no se para pero avisa
   static uint32_t lastWarn = 0;
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
