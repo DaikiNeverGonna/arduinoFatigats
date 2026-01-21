@@ -4,10 +4,10 @@
 const int chipSelect = 9;
 File myFile;
 
-void setup() {
-  // Open serial communications and wait for port to open:
+void setup()
+{
   Serial.begin(9600);
-  // wait for Serial Monitor to connect. Needed for native USB port boards only:
+  // wait for Serial Monitor to connect
   while (!Serial);
 
   Serial.print("Initializing SD card...");
@@ -29,9 +29,8 @@ void setup() {
   myFile.close();
   myFile = SD.open("datalog.txt", FILE_READ);
 
-  // re-open the file for reading:
-  myFile = SD.open("datalog.txt");
-  if (myFile) {
+  if (myFile)
+  {
     Serial.println("datalog.txt:");
 
     // read from the file until there's nothing else in it:
@@ -40,12 +39,14 @@ void setup() {
     }
     // close the file:
     myFile.close();
-  } else {
+  }
+  else
+  {
     // if the file didn't open, print an error:
-    Serial.println("error opening test.txt");
+    Serial.println("error opening datalog.txt");
   }
 }
 
-void loop() {
-  // nothing happens after setup
+void loop()
+{
 }

@@ -26,7 +26,7 @@ void setup()
     return;
   }
   Serial.println(F("Iniciado correctamente"));
-  WriteSD();
+  ReadSD();
 
 }
 void WriteSD()
@@ -47,7 +47,7 @@ void ReadSD()
     while (dataFile.available())
     {
       char c = dataFile.read(); 
-      Serial.write(c);  // En un caso real se realizarían las acciones oportunas
+      Serial.write(c); 
     }
     dataFile.close();
   }
@@ -57,3 +57,5 @@ void ReadSD()
   }
   Serial.println("Se está llamando read SD");
 }
+
+void loop(){}

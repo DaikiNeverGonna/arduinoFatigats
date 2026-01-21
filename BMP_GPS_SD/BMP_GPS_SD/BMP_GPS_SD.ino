@@ -13,7 +13,7 @@ static const uint8_t TXPin = 4;
 static const uint32_t GPSBaud = 9600;
 
 // SD - pin asignado 
-static const uint8_t SD_CS_PIN = 10;
+static const uint8_t SD_CS_PIN = 9;
 
 // Serial monitor
 static const uint32_t SERIAL_BAUD = 9600;
@@ -23,53 +23,53 @@ static const uint16_t samplesQuantity = 100;
 static const uint32_t minPressure = 90000;
 static const uint32_t maxPressure = 110000;
 
-uint32_t calSumPa = 0; //uso un int de 32 bits en la suma total porque será mayor y uno de 16 en la cantidad porque será un número pequeño
+uint32_t calSumPa = 0;
 uint16_t calValidCount = 0;
 bool calibrated = false;
 
 // cosas raras
-
 TinyGPSPlus gps;
 SoftwareSerial ss(RXPin, TXPin);
-Adafruit_BMP280 bmp; // I2C
+Adafruit_BMP280 bmp;
 
-//SD y paquete
+// SD
+bool sdOK = false;
 
-File logFile;
-
+// paquete
 uint32_t package = 0;
 
-// Presión de nivel del mar en hPa (BMP280 readAltitude lee hPa)
+// Presión de nivel del mar en hPa
 float seaLevelhPa = 1013.25f;
 
 void setup()
 {
   Serial.begin(SERIAL_BAUD);
   delay(300);
-  
+
   Serial.println(F("=== START ==="));
+
   // GPS
   ss.begin(GPSBaud);
   ss.listen();
 
-  pinMode(10, OUTPUT);
+  pinMode(SD_CS_PIN, OUTPUT);
 
   // SD init
   Serial.print(F("Iniciando SD (CS="));
   Serial.print(SD_CS_PIN);
   Serial.println(F(")..."));
 
-  if (!SD.begin(SD_CS_PIN))
+  sdOK = SD.begin(SD_CS_PIN);
+  if (!sdOK)
   {
     Serial.println(F("ERROR: SD no inicializa. Revisa CS, cableado, y formato FAT32."));
-    // SIN PARAR EL PROGRAMA (El programa se inicia aunque no haya SD)
   }
   else
   {
     Serial.println(F("SD OK"));
   }
 
-  // BMP280 init (probamos 0x76 y 0x77)
+  // BMP280 init
   Serial.println(F("Iniciando BMP280..."));
   bool bmpOK = bmp.begin(0x76);
   if (!bmpOK)
@@ -77,8 +77,7 @@ void setup()
 
   if (!bmpOK)
   {
-    Serial.println(F("ERROR: BMP280 no detectado (0x76/0x77). Revisa cableado SDA/SCL y VCC/GND."));
-
+    Serial.println(F("ERROR: BMP280 no detectado (0x76/0x77)."));
   }
   else
   {
@@ -161,12 +160,10 @@ static void printGPS_SD(File &f)
 
 void logOnePackage()
 {
-  // Lecturas sensor
   float tempC = bmp.readTemperature();
   uint32_t pressPa = (uint32_t)bmp.readPressure();
   float altM = bmp.readAltitude(seaLevelhPa);
 
-  // Serial: print del bmp y gps (el gps está en su propio método)
   Serial.print(F("FATIGATS - "));
   Serial.print(package); Serial.print(F("p, "));
   Serial.print(tempC, 2); Serial.print(F("C, "));
@@ -175,8 +172,7 @@ void logOnePackage()
   printGPS_Serial();
   Serial.println();
 
-  // SD: print del bmp y gps como antes
-  if (SD.begin(SD_CS_PIN))
+  if (sdOK)
   {
     File f = SD.open("datalog.txt", FILE_WRITE);
     if (f)
@@ -192,20 +188,17 @@ void logOnePackage()
     }
   }
 
-  // Calibración de seaLevelhPa
   if (!calibrated)
   {
-    // cogemos 100 muestras válidas
     if (pressPa >= minPressure && pressPa <= maxPressure)
     {
       calSumPa += pressPa;
       calValidCount++;
 
-      //hacer la calibración
       if (calValidCount >= samplesQuantity)
       {
         float meanPa = (float)calSumPa / (float)calValidCount;
-        seaLevelhPa = meanPa / 100.0f; // Pa -> hPa
+        seaLevelhPa = meanPa / 100.0f;
 
         calibrated = true;
         Serial.print(F("CALIBRADO seaLevelhPa = "));
@@ -219,7 +212,6 @@ void logOnePackage()
 
 void loop()
 {
-  // cosas del gps
   while (ss.available() > 0)
   {
     char c = (char)ss.read();
@@ -227,12 +219,10 @@ void loop()
 
     if (gps.location.isUpdated() || gps.time.isUpdated() || gps.date.isUpdated())
     {
-      //el gps funciona aquí así que hago print y tal
       logOnePackage();
     }
   }
 
-  // Si no hay GPS no se para pero avisa
   static uint32_t lastWarn = 0;
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
