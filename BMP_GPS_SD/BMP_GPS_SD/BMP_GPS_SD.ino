@@ -68,6 +68,11 @@ void setup()
   {
     Serial.println(F("SD OK"));
   }
+  if (SD.exists("datalog.txt"))
+  {
+    Serial.println("SD existía así que borro el archivo para que esté vacío");
+    SD.remove("datalog.txt");
+  }
 
   // BMP280 init
   Serial.println(F("Iniciando BMP280..."));
