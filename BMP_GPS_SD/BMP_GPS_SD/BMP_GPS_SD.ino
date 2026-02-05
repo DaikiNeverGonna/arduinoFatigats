@@ -68,10 +68,10 @@ void setup()
   {
     Serial.println(F("SD OK"));
   }
-  if (SD.exists("datalog.txt"))
+  if (SD.exists("datalog.csv"))
   {
     Serial.println("SD existía así que borro el archivo para que esté vacío");
-    SD.remove("datalog.txt");
+    SD.remove("datalog.csv");
   }
 
   // BMP280 init
@@ -179,7 +179,7 @@ void logOnePackage()
 
   if (sdOK)
   {
-    File f = SD.open("datalog.txt", FILE_WRITE);
+    File f = SD.open("datalog.csv", FILE_WRITE);
     if (f)
     {
       f.print(F("FATIGATS - "));

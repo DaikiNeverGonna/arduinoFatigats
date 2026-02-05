@@ -27,11 +27,11 @@ void setup()
   // so you have to close this one before opening another.
   
   myFile.close();
-  myFile = SD.open("datalog.txt", FILE_READ);
+  myFile = SD.open("datalog.csv", FILE_READ);
 
   if (myFile)
   {
-    Serial.println("datalog.txt:");
+    Serial.println("datalog.csv:");
 
     // read from the file until there's nothing else in it:
     while (myFile.available()) {
@@ -43,7 +43,7 @@ void setup()
   else
   {
     // if the file didn't open, print an error:
-    Serial.println("error opening datalog.txt");
+    Serial.println("error opening datalog.csv");
   }
 }
 
