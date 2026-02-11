@@ -157,9 +157,9 @@ void logOnePackage()
   Serial.print(F("FATIGATS,"));
   Serial.print(package); Serial.print(F(","));
   Serial.print(elapsedSeconds); Serial.print(F(","));
-  Serial.print(tempC, 2); Serial.print(F("C,"));
-  Serial.print(pressPa); Serial.print(F("P,"));
-  Serial.print(altM, 2); Serial.print(F("m,"));
+  Serial.print(tempC, 2); Serial.print(F(","));
+  Serial.print(pressPa); Serial.print(F(","));
+  Serial.print(altM, 2); Serial.print(F(","));
   printGPS_Serial();
   Serial.println();
 
@@ -171,9 +171,9 @@ void logOnePackage()
       f.print(F("FATIGATS,"));
       f.print(package); f.print(F(","));
       f.print(elapsedSeconds); f.print(F(","));
-      f.print(tempC, 2); f.print(F("C,"));
-      f.print(pressPa); f.print(F("P,"));
-      f.print(altM, 2); f.print(F("m,"));
+      f.print(tempC, 2); f.print(F(","));
+      f.print(pressPa); f.print(F(","));
+      f.print(altM, 2); f.print(F(","));
       printGPS_SD(f);
       f.println();
       f.close();
