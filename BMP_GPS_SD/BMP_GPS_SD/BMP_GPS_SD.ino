@@ -138,7 +138,7 @@ static void printGPS_SD(File &f)
 void logOnePackage()
 {
   float tempC = bmp.readTemperature();
-  uint32_t pressPa = (uint32_t)bmp.readPressure();
+  float pressPa = bmp.readPressure() / 1000;
   float altM = bmp.readAltitude(seaLevelhPa);
 
   uint32_t currentSeconds =
