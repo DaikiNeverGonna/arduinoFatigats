@@ -28,6 +28,10 @@ int package = 0;
 Adafruit_BMP280 bmp; // I2C
 File logFile;
 
+int delayMillis = 2000;
+
+int previousMillis;
+
 void setup()
 {
   Serial.begin(9600);
@@ -138,19 +142,22 @@ void displayGPS()
 //
 void loop()
 {
-  logFile = SD.open("datalog.txt", FILE_WRITE);
-  Serial.print("FATIGATS - ");
-
-  //GPS
   while (ss.available() > 0)
     if (gps.encode(ss.read()))
-      displayGPS();
+      delayedLoop();
 
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
     Serial.println(F("No GPS detected: check wiring."));
     while(true);
   }
+
+}
+void delayedLoop()
+{
+  //logFile = SD.open("datalog.txt", FILE_WRITE);
+  Serial.print("FATIGATS - ");
+
   // p-paquete C-celsius P - Pascals m-Altitud
   char unities[] = "pCPm";
   float stuff[4] = {package, bmp.readTemperature(), bmp.readPressure(), bmp.readAltitude(1013.25)};
@@ -168,7 +175,7 @@ void loop()
   }*/
 
   Serial.println();
-  delay(2000);
+  //delay(2000);
 
   package++;
 }
