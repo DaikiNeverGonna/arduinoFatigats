@@ -13,19 +13,10 @@ static const uint8_t TXPin = 4;
 static const uint32_t GPSBaud = 9600;
 
 // SD
-static const uint8_t SD_CS_PIN = 9;
+static const uint8_t SD_CS_PIN = 8;
 
 // Serial
 static const uint32_t SERIAL_BAUD = 9600;
-
-// Pressure calibration
-static const uint16_t samplesQuantity = 100;
-static const uint32_t minPressure = 90000;
-static const uint32_t maxPressure = 110000;
-
-uint32_t calSumPa = 0;
-uint16_t calValidCount = 0;
-bool calibrated = false;
 
 // GPS / sensores
 TinyGPSPlus gps;
@@ -42,6 +33,9 @@ uint32_t package = 0;
 bool timeInitialized = false;
 uint32_t startSeconds = 0;
 uint32_t elapsedSeconds = 0;
+
+// fallback millis
+uint32_t startMillis = 0;
 
 // Presión nivel del mar
 float seaLevelhPa = 1013.25f;
@@ -69,6 +63,8 @@ void setup()
                     Adafruit_BMP280::FILTER_X16,
                     Adafruit_BMP280::STANDBY_MS_500);
   }
+
+  startMillis = millis();
 }
 
 // ---------- GPS PRINT ----------
@@ -99,7 +95,7 @@ static void printGPS_Serial()
   }
   else
   {
-    Serial.print(F("INVALID"));
+    Serial.print(F("NO_GPS_TIME"));
   }
 }
 
@@ -129,7 +125,7 @@ static void printGPS_SD(File &f)
   }
   else
   {
-    f.print(F("INVALID"));
+    f.print(F("NO_GPS_TIME"));
   }
 }
 
@@ -141,18 +137,29 @@ void logOnePackage()
   float pressPa = bmp.readPressure() / 1000;
   float altM = bmp.readAltitude(seaLevelhPa);
 
-  uint32_t currentSeconds =
-    (uint32_t)gps.time.hour() * 3600UL +
-    (uint32_t)gps.time.minute() * 60UL +
-    (uint32_t)gps.time.second();
+  uint32_t currentSeconds = 0;
 
-  if (!timeInitialized)
+  // --- SI HAY GPS ---
+  if (gps.time.isValid())
   {
-    startSeconds = currentSeconds;
-    timeInitialized = true;
-  }
+    currentSeconds =
+      (uint32_t)gps.time.hour() * 3600UL +
+      (uint32_t)gps.time.minute() * 60UL +
+      (uint32_t)gps.time.second();
 
-  elapsedSeconds = currentSeconds - startSeconds;
+    if (!timeInitialized)
+    {
+      startSeconds = currentSeconds;
+      timeInitialized = true;
+    }
+
+    elapsedSeconds = currentSeconds - startSeconds;
+  }
+  else
+  {
+    // --- FALLBACK SIN GPS ---
+    elapsedSeconds = (millis() - startMillis) / 1000UL;
+  }
 
   Serial.print(F("FATIGATS,"));
   Serial.print(package); Serial.print(F(","));
@@ -184,24 +191,20 @@ void logOnePackage()
 }
 
 // ---------- LOOP ----------
-
 void loop()
 {
-  static int lastSecond = -1;
+    static uint32_t lastLogMillis = 0;
 
-  while (ss.available() > 0)
-  {
-    char c = ss.read();
-    gps.encode(c);
-
-    if (gps.time.isValid())
+    while (ss.available() > 0)
     {
-      int sec = gps.time.second();
-      if (sec != lastSecond)
-      {
-        lastSecond = sec;
-        logOnePackage();
-      }
+      gps.encode(ss.read());
     }
-  }
+
+    // reloj estable cada 1 segundo SIEMPRE
+    if (millis() - lastLogMillis >= 1000)
+    {
+      lastLogMillis += 1000;   // mejor que = millis() (evita drift)
+      logOnePackage();
+    }
+
 }
