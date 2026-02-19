@@ -13,7 +13,7 @@ static const uint8_t TXPin = 4;
 static const uint32_t GPSBaud = 9600;
 
 // SD
-static const uint8_t SD_CS_PIN = 8;
+static const uint8_t SD_CS_PIN = 10;
 
 // Serial
 static const uint32_t SERIAL_BAUD = 9600;
