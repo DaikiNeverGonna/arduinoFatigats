@@ -10,8 +10,8 @@
  12    --->  EN
  11    --->  RXD
  10    --->  TXD
-  9    --->  AUX
-  8    --->  SET
+  9    --->  AUX NR-GM
+  8    --->  SET MG RX TX
 
 /*
  
