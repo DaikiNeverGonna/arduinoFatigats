@@ -8,8 +8,8 @@
 #include <SD.h>
 
 // GPS
-static const uint8_t RXPin = 5;
-static const uint8_t TXPin = 4;
+static const uint8_t RXPin = 4;
+static const uint8_t TXPin = 3;
 static const uint32_t GPSBaud = 9600;
 
 // SD
