@@ -17,6 +17,14 @@ static const uint8_t SD_CS_PIN = 10;
 
 // Serial
 static const uint32_t SERIAL_BAUD = 9600;
+// Pressure calibration
+static const uint16_t samplesQuantity = 100;
+static const uint32_t minPressure = 90000;
+static const uint32_t maxPressure = 110000;
+
+uint32_t calSumPa = 0;
+uint16_t calValidCount = 0;
+bool calibrated = false;
 
 // GPS / sensores
 TinyGPSPlus gps;
@@ -133,11 +141,29 @@ static void printGPS_SD(File &f)
 
 void logOnePackage()
 {
+  uint32_t currentSeconds = 0;
+  // Presión en hPa (recomendado)
+  float pressure_hPa = bmp.readPressure() / 100.0f;     // Pa → hPa
   float tempC = bmp.readTemperature();
-  float pressPa = bmp.readPressure() / 1000;
   float altM = bmp.readAltitude(seaLevelhPa);
 
-  uint32_t currentSeconds = 0;
+  // Calibración (corregida)
+  if (!calibrated)
+  {
+    if (pressure_hPa >= 900 && pressure_hPa <= 1100)   // ahora en hPa
+    {
+      calSumPa += pressure_hPa;
+      calValidCount++;
+
+      if (calValidCount >= samplesQuantity)
+      {
+        seaLevelhPa = calSumPa / (float)calValidCount;
+        calibrated = true;
+        Serial.print(F("CALIBRADO seaLevelhPa = "));
+        Serial.println(seaLevelhPa, 2);
+      }
+    }
+  }
 
   // --- SI HAY GPS ---
   if (gps.time.isValid())
@@ -165,7 +191,7 @@ void logOnePackage()
   Serial.print(package); Serial.print(F(","));
   Serial.print(elapsedSeconds); Serial.print(F(","));
   Serial.print(tempC, 2); Serial.print(F(","));
-  Serial.print(pressPa); Serial.print(F(","));
+  Serial.print(pressure_hPa); Serial.print(F(","));
   Serial.print(altM, 2); Serial.print(F(","));
   printGPS_Serial();
   Serial.println();
@@ -179,7 +205,7 @@ void logOnePackage()
       f.print(package); f.print(F(","));
       f.print(elapsedSeconds); f.print(F(","));
       f.print(tempC, 2); f.print(F(","));
-      f.print(pressPa); f.print(F(","));
+      f.print(pressure_hPa); f.print(F(","));
       f.print(altM, 2); f.print(F(","));
       printGPS_SD(f);
       f.println();
