@@ -150,7 +150,7 @@ void logOnePackage()
   // Calibración (corregida)
   if (!calibrated)
   {
-    if (pressure_hPa >= 90 && pressure_hPa <= 110)  
+    if (pressure_hPa >= 900 && pressure_hPa <= 1100)  
     {
       calSumPa += pressure_hPa;
       calValidCount++;
