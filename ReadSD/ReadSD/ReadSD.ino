@@ -1,7 +1,7 @@
 
 #include <SD.h>
 
-const int chipSelect = 10;
+const int chipSelect = 9;
 File myFile;
 
 void setup()
