@@ -88,7 +88,7 @@ void setup()
 void loop() 
 {
   //no hacemos nada en esta seccion
-}
+}3
 
 // ESCRIBIR CONFIGURACION
 
@@ -99,7 +99,7 @@ void write_config()
   delay(50);
 
 //Parametros de configuración
-  APCport.print("WR 415370 3 9 3 0");   
+  APCport.print("WR 435000 3 9 3 0");   
   APCport.write(0x0D);                  
   APCport.write(0x0A);                  
   delay(100);
