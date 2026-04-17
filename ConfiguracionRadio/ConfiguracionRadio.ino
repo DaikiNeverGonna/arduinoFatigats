@@ -88,7 +88,7 @@ void setup()
 void loop() 
 {
   //no hacemos nada en esta seccion
-}3
+}
 
 // ESCRIBIR CONFIGURACION
 
