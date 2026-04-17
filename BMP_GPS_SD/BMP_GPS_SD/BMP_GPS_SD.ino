@@ -13,7 +13,7 @@ static const uint8_t TXPin = 3;
 static const uint32_t GPSBaud = 9600;
 
 // SD
-static const uint8_t SD_CS_PIN = 10;
+static const uint8_t SD_CS_PIN = 9;
 
 // Serial
 static const uint32_t SERIAL_BAUD = 9600;
@@ -59,7 +59,9 @@ void setup()
   pinMode(SD_CS_PIN, OUTPUT);
 
   sdOK = SD.begin(SD_CS_PIN);
-  if (sdOK && SD.exists("datalog.txt"))
+  if (!sdOK)
+    Serial.print("SD Error");
+  if (SD.exists("datalog.txt"))
     SD.remove("datalog.txt");
 
   bool bmpOK = bmp.begin(0x76) || bmp.begin(0x77);
@@ -161,8 +163,8 @@ void logOnePackage()
         calibrated = true;
         Serial.print(F("CALIBRADO seaLevelhPa = "));
         Serial.println(seaLevelhPa, 2);
-      }
-    }
+      } 
+    } 
   }
 
   // --- SI HAY GPS ---
@@ -196,21 +198,19 @@ void logOnePackage()
   printGPS_Serial();
   Serial.println();
 
-  if (sdOK)
+  //if (sdOK)
+  File f = SD.open("datalog.txt", FILE_WRITE);
+  if (f)
   {
-    File f = SD.open("datalog.txt", FILE_WRITE);
-    if (f)
-    {
-      f.print(F("FATIGATS,"));
-      f.print(package); f.print(F(","));
-      f.print(elapsedSeconds); f.print(F(","));
-      f.print(tempC, 2); f.print(F(","));
-      f.print(pressure_hPa); f.print(F(","));
-      f.print(altM, 2); f.print(F(","));
-      printGPS_SD(f);
-      f.println();
-      f.close();
-    }
+    f.print(F("FATIGATS,"));
+    f.print(package); f.print(F(","));
+    f.print(elapsedSeconds); f.print(F(","));
+    f.print(tempC, 2); f.print(F(","));
+    f.print(pressure_hPa); f.print(F(","));
+    f.print(altM, 2); f.print(F(","));
+    printGPS_SD(f);
+    f.println();
+    f.close();
   }
 
   package++;
